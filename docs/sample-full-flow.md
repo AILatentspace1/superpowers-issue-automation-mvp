@@ -13,7 +13,7 @@ goal -> research -> plan -> implement plan -> test -> verify -> release
 | Goal | `sp:goal` | `sp:goal-approved` | `superpowers-product-planner` |
 | Research | `sp:research` | `sp:research-approved` | `superpowers-product-planner` |
 | Plan | `sp:plan` | `sp:plan-approved` | `superpowers-implementation-planner` |
-| Implement | `sp:implement` | PR opened | `superpowers-implementer` |
+| Implement | `sp:implement` | `sp:implementation-ready` | `superpowers-implementer` |
 | Test | `sp:test` | `sp:test-approved` | `superpowers-test-engineer` |
 | Verify | `sp:verify` | `sp:verify-approved` | `superpowers-release-captain` |
 | Release | `sp:release` | human merge/publish | human gate |
@@ -27,7 +27,7 @@ goal -> research -> plan -> implement plan -> test -> verify -> release
 5. Add label `sp:research-approved`.
 6. Confirm implementation-planner comment appears.
 7. Add label `sp:plan-approved`.
-8. Confirm implementer comment appears and a PR may be created by Copilot.
+8. Confirm implementer comment appears and a PR may be created by Copilot. Add `sp:implementation-ready` when implementation evidence is acceptable.
 9. On PR, confirm test-engineer comment appears.
 10. Add `sp:test-approved` after test evidence is acceptable.
 11. Confirm release-captain verify comment appears.
