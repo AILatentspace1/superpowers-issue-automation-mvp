@@ -20,8 +20,13 @@ FEATURE_HEADER = "issues_copilot_assignment_api_support,coding_agent_model_selec
 def gh_graphql(query: str, variables: dict[str, str]) -> dict:
     cmd = ["gh", "api", "graphql", "-H", f"GraphQL-Features: {FEATURE_HEADER}", "-f", f"query={query}"]
     for key, value in variables.items():
-        cmd.extend(["-f", f"{key}={value}"])
-    completed = subprocess.run(cmd, text=True, capture_output=True, check=True)
+        # `gh api -f` sends strings; GraphQL `issue(number:)` requires Int!.
+        flag = "-F" if key == "issue" else "-f"
+        cmd.extend([flag, f"{key}={value}"])
+    completed = subprocess.run(cmd, text=True, capture_output=True)
+    if completed.returncode != 0:
+        sys.stderr.write(completed.stderr)
+        raise subprocess.CalledProcessError(completed.returncode, cmd, completed.stdout, completed.stderr)
     return json.loads(completed.stdout)
 
 
