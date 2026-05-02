@@ -1,0 +1,76 @@
+# Superpowers Issue Automation MVP
+
+Minimal GitHub Issues orchestrator for a Superpowers-style software development flow.
+
+This repository demonstrates two layers:
+
+1. **GitHub Actions event layer** — reacts immediately to issue labels and PR check failures.
+2. **Codex Automation poller layer** — can run periodically to find stuck issues and print/optionally apply next actions.
+
+The MVP uses GitHub issue labels as the state machine and comments to trigger Copilot/custom code agents.
+
+## Flow
+
+```text
+Issue opened
+  -> sp:needs-design
+  -> comment for superpowers-product-planner
+User adds sp:design-approved
+  -> sp:needs-plan
+  -> comment for superpowers-implementation-planner
+User adds sp:plan-approved
+  -> sp:needs-implementation
+  -> comment for superpowers-implementer
+PR CI failure
+  -> comment for superpowers-debugger
+PR CI success
+  -> comment for superpowers-code-reviewer / release-captain
+```
+
+## Required labels
+
+Run:
+
+```bash
+gh label create "sp:needs-design" --color 5319E7 --description "Superpowers: design needed"
+gh label create "sp:design-approved" --color 0E8A16 --description "Superpowers: design approved by human"
+gh label create "sp:needs-plan" --color 5319E7 --description "Superpowers: implementation plan needed"
+gh label create "sp:plan-approved" --color 0E8A16 --description "Superpowers: implementation plan approved by human"
+gh label create "sp:needs-implementation" --color FBCA04 --description "Superpowers: implementation needed"
+gh label create "sp:needs-debug" --color D93F0B --description "Superpowers: debugger needed"
+gh label create "sp:needs-code-review" --color 1D76DB --description "Superpowers: code review needed"
+gh label create "sp:needs-release-check" --color 1D76DB --description "Superpowers: release verification needed"
+gh label create "sp:blocked" --color B60205 --description "Superpowers: blocked"
+gh label create "sp:done" --color 0E8A16 --description "Superpowers: done"
+```
+
+## Usage
+
+1. Create an issue using the Superpowers feature request template.
+2. The workflow adds `sp:needs-design` and comments to invoke the planner agent.
+3. Review the planner output, then add `sp:design-approved`.
+4. Review the implementation plan, then add `sp:plan-approved`.
+5. Copilot/custom agent creates a PR.
+6. PR workflows trigger debugger/reviewer/release-captain comments based on check results.
+
+## Codex Automation poller
+
+For a periodic Codex Automation, use prompt like:
+
+```text
+In E:\workspace\superpowers-issue-automation-mvp, run:
+python scripts/poll_superpowers_issues.py --repo AILatentspace1/superpowers-issue-automation-mvp --dry-run
+Summarize stuck issues and recommended next actions. Do not mutate GitHub unless explicitly requested.
+```
+
+To apply comments/labels manually:
+
+```bash
+python scripts/poll_superpowers_issues.py --repo AILatentspace1/superpowers-issue-automation-mvp --apply
+```
+
+## Safety
+
+- Human approval labels are required between design -> plan and plan -> implementation.
+- The planner prompt asks for planning-only output.
+- The automation is label-driven and idempotent: it checks for existing marker comments before posting again.

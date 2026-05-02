@@ -1,0 +1,153 @@
+name: Superpowers Issue Flow
+
+on:
+  issues:
+    types: [opened, labeled]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_run:
+    types: [completed]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  issue-opened:
+    if: github.event_name == 'issues' && github.event.action == 'opened'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add design label and invoke planner
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const marker = '<!-- sp:invoke:product-planner -->';
+
+            await github.rest.issues.addLabels({
+              owner,
+              repo,
+              issue_number: issue.number,
+              labels: ['sp:needs-design'],
+            });
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number: issue.number,
+              per_page: 100,
+            });
+            if (comments.some((comment) => comment.body?.includes(marker))) {
+              core.info('Planner invocation comment already exists.');
+              return;
+            }
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: issue.number,
+              body: `${marker}\n@copilot use superpowers-product-planner to create a design/spec only. Do not modify files, create branches, commit, or open a PR.\n\nRequired output marker:\n\`\`\`text\nSP_STAGE: design-ready\n\`\`\``,
+            });
+
+  design-approved:
+    if: github.event_name == 'issues' && github.event.action == 'labeled' && github.event.label.name == 'sp:design-approved'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Move to plan stage and invoke implementation planner
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const marker = '<!-- sp:invoke:implementation-planner -->';
+
+            await github.rest.issues.addLabels({ owner, repo, issue_number: issue.number, labels: ['sp:needs-plan'] });
+            try { await github.rest.issues.removeLabel({ owner, repo, issue_number: issue.number, name: 'sp:needs-design' }); } catch (error) { core.info(error.message); }
+
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: issue.number, per_page: 100 });
+            if (comments.some((comment) => comment.body?.includes(marker))) return;
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: issue.number,
+              body: `${marker}\n@copilot use superpowers-implementation-planner to turn the approved design into an implementation plan only. Do not modify code.\n\nRequired output marker:\n\`\`\`text\nSP_STAGE: plan-ready\n\`\`\``,
+            });
+
+  plan-approved:
+    if: github.event_name == 'issues' && github.event.action == 'labeled' && github.event.label.name == 'sp:plan-approved'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Move to implementation stage and invoke implementer
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const marker = '<!-- sp:invoke:implementer -->';
+
+            await github.rest.issues.addLabels({ owner, repo, issue_number: issue.number, labels: ['sp:needs-implementation'] });
+            try { await github.rest.issues.removeLabel({ owner, repo, issue_number: issue.number, name: 'sp:needs-plan' }); } catch (error) { core.info(error.message); }
+
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: issue.number, per_page: 100 });
+            if (comments.some((comment) => comment.body?.includes(marker))) return;
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: issue.number,
+              body: `${marker}\n@copilot use superpowers-implementer to implement the approved plan with TDD. Create a PR when ready and include verification evidence.`,
+            });
+
+  pr-opened:
+    if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'ready_for_review')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Request code review checklist
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const marker = '<!-- sp:invoke:code-reviewer -->';
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: pr.number, per_page: 100 });
+            if (comments.some((comment) => comment.body?.includes(marker))) return;
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: pr.number,
+              body: `${marker}\n@copilot use superpowers-code-reviewer to review this PR for spec compliance and code quality. Do not push changes; report Critical/Important/Minor findings.`,
+            });
+
+  workflow-run-completed:
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comment on PR based on check result
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            const prs = run.pull_requests || [];
+            if (prs.length === 0) {
+              core.info('No PR associated with workflow_run.');
+              return;
+            }
+            const pr = prs[0];
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issue_number = pr.number;
+            const marker = run.conclusion === 'success' ? '<!-- sp:invoke:release-captain -->' : '<!-- sp:invoke:debugger -->';
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number, per_page: 100 });
+            if (comments.some((comment) => comment.body?.includes(marker))) return;
+            const body = run.conclusion === 'success'
+              ? `${marker}\n@copilot use superpowers-release-captain to run final verification and produce PR readiness summary. Report exact evidence before claiming completion.`
+              : `${marker}\n@copilot use superpowers-debugger to investigate the failing workflow run root cause first. Do not guess or patch before reproduction/evidence.\n\nWorkflow run: ${run.html_url}`;
+            await github.rest.issues.createComment({ owner, repo, issue_number, body });

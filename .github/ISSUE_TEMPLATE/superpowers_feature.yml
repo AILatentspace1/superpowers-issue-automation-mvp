@@ -1,0 +1,27 @@
+name: Superpowers Feature
+description: Request a feature through the Superpowers issue automation flow.
+title: "feat: "
+labels: ["sp:needs-design"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Idea
+      description: What problem should be solved?
+    validations:
+      required: true
+  - type: textarea
+    id: success
+    attributes:
+      label: Success criteria
+      description: What must be true when this is complete?
+      value: |
+        - [ ]
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints / non-goals
+      description: Any explicit constraints, risks, or out-of-scope items.
