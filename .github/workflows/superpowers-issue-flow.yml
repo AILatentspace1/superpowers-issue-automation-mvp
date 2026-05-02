@@ -1,6 +1,8 @@
 name: Superpowers Issue Flow
 
 on:
+  push:
+    branches: [main]
   issues:
     types: [opened, labeled]
   pull_request:
@@ -15,6 +17,12 @@ permissions:
   actions: read
 
 jobs:
+  noop:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Superpowers Issue Flow is ready."
+
   issue-opened:
     if: github.event_name == 'issues' && github.event.action == 'opened'
     runs-on: ubuntu-latest
