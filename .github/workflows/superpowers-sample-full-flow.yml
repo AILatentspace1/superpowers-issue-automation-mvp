@@ -26,6 +26,7 @@ jobs:
     if: github.event_name == 'issues'
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - name: Route sample full-flow issue
         uses: actions/github-script@v7
         with:
@@ -128,3 +129,16 @@ jobs:
                 'Release gate reached. Human should merge/publish after reviewing verification evidence.\n\nRequired marker:\n```text\nSP_STAGE: release-ready\n```'
               );
             }
+
+      - name: Assign Copilot on implementation stage
+        if: contains(toJson(github.event.issue.labels), 'sp:plan-approved') && secrets.COPILOT_ASSIGN_PAT != ''
+        env:
+          GH_TOKEN: ${{ secrets.COPILOT_ASSIGN_PAT }}
+        run: >-
+          python scripts/assign_copilot_issue.py
+          --repo "${{ github.repository }}"
+          --issue "${{ github.event.issue.number }}"
+          --base-ref "main"
+          --custom-agent "superpowers-implementer"
+          --instructions "Use superpowers-implementer to implement the approved plan with TDD. Create a PR when ready and include exact verification evidence."
+

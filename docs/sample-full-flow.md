@@ -18,6 +18,10 @@ goal -> research -> plan -> implement plan -> test -> verify -> release
 | Verify | `sp:verify` | `sp:verify-approved` | `superpowers-release-captain` |
 | Release | `sp:release` | human merge/publish | human gate |
 
+## Copilot execution
+
+The sample workflow assigns Copilot through the official issue assignment API when `sp:plan-approved` is added. This requires repository secret `COPILOT_ASSIGN_PAT`; otherwise the workflow still posts audit comments but Copilot will not start work.
+
 ## Manual test recipe
 
 1. Create an issue using the **Superpowers Sample Full Flow** template.

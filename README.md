@@ -44,6 +44,21 @@ gh label create "sp:blocked" --color B60205 --description "Superpowers: blocked"
 gh label create "sp:done" --color 0E8A16 --description "Superpowers: done"
 ```
 
+
+## Copilot execution setup
+
+GitHub Actions comments from `github-actions[bot]` are useful audit markers, but they do **not** reliably start Copilot coding agent work. To start Copilot programmatically, this MVP uses the official Copilot issue assignment API.
+
+Create a repository secret named `COPILOT_ASSIGN_PAT`:
+
+```bash
+gh secret set COPILOT_ASSIGN_PAT --repo AILatentspace1/superpowers-issue-automation-mvp --body "$(gh auth token)"
+```
+
+The token must be a user token that can assign Copilot coding agent. GitHub's default `GITHUB_TOKEN` is not sufficient for Copilot assignment.
+
+When `sp:plan-approved` is added to a sample-flow issue, the workflow assigns `copilot-swe-agent` with `customAgent: superpowers-implementer` and implementation instructions.
+
 ## Usage
 
 1. Create an issue using the Superpowers feature request template.
