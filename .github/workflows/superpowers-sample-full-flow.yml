@@ -57,11 +57,27 @@ jobs:
               await github.rest.issues.createComment({ owner, repo, issue_number: issue.number, body: `${marker}\n${body}` });
             };
 
-            if (context.payload.action === 'opened') {
+            const advancedLabels = [
+              'sp:goal-approved',
+              'sp:research',
+              'sp:research-approved',
+              'sp:plan',
+              'sp:plan-approved',
+              'sp:implement',
+              'sp:implementation-ready',
+              'sp:test',
+              'sp:test-approved',
+              'sp:verify',
+              'sp:verify-approved',
+              'sp:release',
+            ];
+            const shouldStartAtGoal = context.payload.action === 'opened' && !advancedLabels.some((label) => labels.has(label));
+
+            if (shouldStartAtGoal) {
               await addLabels(['sp:goal']);
             }
 
-            if (labels.has('sp:goal') || context.payload.action === 'opened') {
+            if (labels.has('sp:goal') || shouldStartAtGoal) {
               await commentOnce(
                 '<!-- sp:sample:goal -->',
                 '@copilot use superpowers-product-planner to restate the goal, success criteria, constraints, and non-goals only. Do not modify files or open a PR.\n\nRequired marker:\n```text\nSP_STAGE: goal-ready\n```'
