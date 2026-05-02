@@ -1,0 +1,26 @@
+name: Superpowers Sample Full Flow
+description: Test goal → research → plan → implement → test → verify → release.
+title: "sample-flow: "
+labels: ["sp:sample-flow", "sp:goal"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What should this sample flow build or change?
+      value: |
+        Add or update a small documentation section that explains one project convention.
+    validations:
+      required: true
+  - type: textarea
+    id: success
+    attributes:
+      label: Success criteria
+      value: |
+        - [ ] Goal is restated clearly.
+        - [ ] Repository context is researched.
+        - [ ] Implementation plan is approved before coding.
+        - [ ] PR includes test/verification evidence.
+        - [ ] Release gate is reached only after verification.
+    validations:
+      required: true

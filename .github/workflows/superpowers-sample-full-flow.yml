@@ -1,0 +1,159 @@
+name: Superpowers Sample Full Flow
+
+on:
+  issues:
+    types: [opened, labeled]
+  pull_request:
+    types: [opened, ready_for_review, synchronize, reopened]
+  workflow_run:
+    types: [completed]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  route-issue-stage:
+    if: github.event_name == 'issues'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Route sample full-flow issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const labels = new Set((issue.labels || []).map((label) => label.name));
+
+            if (!labels.has('sp:sample-flow')) {
+              core.info('Not a sample full-flow issue.');
+              return;
+            }
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number: issue.number,
+              per_page: 100,
+            });
+            const hasMarker = (marker) => comments.some((comment) => comment.body?.includes(marker));
+            const addLabels = async (names) => {
+              const missing = names.filter((name) => !labels.has(name));
+              if (missing.length) {
+                await github.rest.issues.addLabels({ owner, repo, issue_number: issue.number, labels: missing });
+              }
+            };
+            const removeLabel = async (name) => {
+              try { await github.rest.issues.removeLabel({ owner, repo, issue_number: issue.number, name }); } catch (error) { core.info(error.message); }
+            };
+            const commentOnce = async (marker, body) => {
+              if (hasMarker(marker)) return;
+              await github.rest.issues.createComment({ owner, repo, issue_number: issue.number, body: `${marker}\n${body}` });
+            };
+
+            if (context.payload.action === 'opened') {
+              await addLabels(['sp:goal']);
+            }
+
+            if (labels.has('sp:goal') || context.payload.action === 'opened') {
+              await commentOnce(
+                '<!-- sp:sample:goal -->',
+                '@copilot use superpowers-product-planner to restate the goal, success criteria, constraints, and non-goals only. Do not modify files or open a PR.\n\nRequired marker:\n```text\nSP_STAGE: goal-ready\n```'
+              );
+            }
+
+            if (labels.has('sp:goal-approved')) {
+              await addLabels(['sp:research']);
+              await removeLabel('sp:goal');
+              await commentOnce(
+                '<!-- sp:sample:research -->',
+                '@copilot use superpowers-product-planner to research the repository context and comparable patterns, then produce a concise research summary only. Do not modify files or open a PR.\n\nRequired marker:\n```text\nSP_STAGE: research-ready\n```'
+              );
+            }
+
+            if (labels.has('sp:research-approved')) {
+              await addLabels(['sp:plan']);
+              await removeLabel('sp:research');
+              await commentOnce(
+                '<!-- sp:sample:plan -->',
+                '@copilot use superpowers-implementation-planner to create a bite-sized TDD implementation plan only. Do not modify code.\n\nRequired marker:\n```text\nSP_STAGE: plan-ready\n```'
+              );
+            }
+
+            if (labels.has('sp:plan-approved')) {
+              await addLabels(['sp:implement']);
+              await removeLabel('sp:plan');
+              await commentOnce(
+                '<!-- sp:sample:implement -->',
+                '@copilot use superpowers-implementer to implement the approved plan with TDD. Create a PR when ready and include verification evidence.'
+              );
+            }
+
+            if (labels.has('sp:test-approved')) {
+              await addLabels(['sp:verify']);
+              await removeLabel('sp:test');
+              await commentOnce(
+                '<!-- sp:sample:verify -->',
+                '@copilot use superpowers-release-captain to run fresh verification and produce a release readiness summary. Do not claim success without exact command output.'
+              );
+            }
+
+            if (labels.has('sp:verify-approved')) {
+              await addLabels(['sp:release']);
+              await removeLabel('sp:verify');
+              await commentOnce(
+                '<!-- sp:sample:release -->',
+                'Release gate reached. Human should merge/publish after reviewing verification evidence.\n\nRequired marker:\n```text\nSP_STAGE: release-ready\n```'
+              );
+            }
+
+  pr-sample-stage:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Request test review for sample flow PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const labels = new Set((pr.labels || []).map((label) => label.name));
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: pr.number, per_page: 100 });
+            if (comments.some((comment) => comment.body?.includes('<!-- sp:sample:test -->'))) return;
+            await github.rest.issues.addLabels({ owner, repo, issue_number: pr.number, labels: ['sp:test'] });
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: pr.number,
+              body: '<!-- sp:sample:test -->\n@copilot use superpowers-test-engineer to review tests, regression coverage, and RED/GREEN evidence for this PR. Do not push changes unless explicitly requested.\n\nRequired marker:\n```text\nSP_STAGE: test-ready\n```',
+            });
+
+  workflow-result-stage:
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Route CI result
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            const prs = run.pull_requests || [];
+            if (!prs.length) return;
+            const pr = prs[0];
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issue_number = pr.number;
+            const marker = run.conclusion === 'success' ? '<!-- sp:sample:ci-success -->' : '<!-- sp:sample:ci-failed -->';
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number, per_page: 100 });
+            if (comments.some((comment) => comment.body?.includes(marker))) return;
+            if (run.conclusion === 'success') {
+              await github.rest.issues.addLabels({ owner, repo, issue_number, labels: ['sp:verify'] });
+              await github.rest.issues.createComment({ owner, repo, issue_number, body: `${marker}\nCI passed. @copilot use superpowers-release-captain to run fresh final verification and prepare release readiness summary.` });
+            } else {
+              await github.rest.issues.addLabels({ owner, repo, issue_number, labels: ['sp:needs-debug'] });
+              await github.rest.issues.createComment({ owner, repo, issue_number, body: `${marker}\nCI failed. @copilot use superpowers-debugger to investigate root cause first before proposing fixes.\n\nWorkflow run: ${run.html_url}` });
+            }
