@@ -1,8 +1,6 @@
 name: Superpowers Issue Flow
 
 on:
-  push:
-    branches: [main]
   issues:
     types: [opened, labeled]
   pull_request:
@@ -11,7 +9,7 @@ on:
     types: [completed]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.event.issue.number || github.run_id }}
   cancel-in-progress: false
 
 permissions:
@@ -21,12 +19,6 @@ permissions:
   actions: read
 
 jobs:
-  noop:
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "Superpowers Issue Flow is ready."
-
   issue-opened:
     if: github.event_name == 'issues' && github.event.action == 'opened'
     runs-on: ubuntu-latest

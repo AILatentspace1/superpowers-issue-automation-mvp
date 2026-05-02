@@ -3,12 +3,10 @@ name: Superpowers Sample Full Flow
 on:
   issues:
     types: [opened, labeled]
-  push:
-    branches: [main]
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.event.issue.number || github.run_id }}
   cancel-in-progress: false
 
 permissions:
@@ -16,12 +14,6 @@ permissions:
   issues: write
 
 jobs:
-  noop:
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "Superpowers Sample Full Flow is ready."
-
   route-issue-stage:
     if: github.event_name == 'issues'
     runs-on: ubuntu-latest
@@ -131,14 +123,18 @@ jobs:
             }
 
       - name: Assign Copilot on implementation stage
-        if: contains(toJson(github.event.issue.labels), 'sp:plan-approved') && secrets.COPILOT_ASSIGN_PAT != ''
+        if: contains(toJson(github.event.issue.labels), 'sp:plan-approved')
         env:
           GH_TOKEN: ${{ secrets.COPILOT_ASSIGN_PAT }}
-        run: >-
-          python scripts/assign_copilot_issue.py
-          --repo "${{ github.repository }}"
-          --issue "${{ github.event.issue.number }}"
-          --base-ref "main"
-          --custom-agent "superpowers-implementer"
-          --instructions "Use superpowers-implementer to implement the approved plan with TDD. Create a PR when ready and include exact verification evidence."
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "COPILOT_ASSIGN_PAT is not configured; skipping Copilot assignment."
+            exit 0
+          fi
+          python scripts/assign_copilot_issue.py \
+            --repo "${{ github.repository }}" \
+            --issue "${{ github.event.issue.number }}" \
+            --base-ref "main" \
+            --custom-agent "superpowers-implementer" \
+            --instructions "Use superpowers-implementer to implement the approved plan with TDD. Create a PR when ready and include exact verification evidence."
 
