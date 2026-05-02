@@ -15,6 +15,7 @@ import argparse
 import json
 import re
 import subprocess
+import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -252,17 +253,99 @@ def sync_one(repo: str, issue_number: int, *, apply: bool) -> None:
         print(f"Issue #{issue_number}: marker already posted for stage {stage}")
 
 
+
+def local_approval_comment(stage: str) -> str:
+    return f"/sp approve {stage}\n\nApproved locally by Codex command."
+
+
+def load_existing_or_create(repo: str, issue_number: int) -> tuple[Path, dict[str, Any], dict[str, Any]]:
+    issue_data = fetch_issue(repo, issue_number)
+    path, state, _created = ensure_state(repo, issue_number, issue_data)
+    if not path.exists():
+        save_state(path, state)
+    return path, state, issue_data
+
+
+def print_status(repo: str, issue_number: int) -> None:
+    path, state, issue_data = load_existing_or_create(repo, issue_number)
+    approvals = approvals_from_comments(issue_data)
+    merged_approvals = {**{stage: False for stage in STAGES}, **state.get("approvals", {}), **approvals}
+    print(f"Issue: {repo}#{issue_number}")
+    print(f"URL: {issue_data.get('url', '')}")
+    print(f"State file: {path.relative_to(ROOT)}")
+    print(f"Stage: {state.get('stage')}")
+    print(f"Status: {state.get('status')}")
+    print("Approvals:")
+    for stage in STAGES:
+        print(f"  {stage}: {bool(merged_approvals.get(stage))}")
+    artifacts = state.get("artifacts", {}) or {}
+    if artifacts:
+        print("Artifacts:")
+        for stage, artifact in artifacts.items():
+            print(f"  {stage}: {artifact}")
+
+
+def approve_stage(repo: str, issue_number: int, stage: str, *, apply: bool, audit_comment: bool = True) -> None:
+    if stage not in STAGES:
+        raise SystemExit(f"Unknown stage {stage!r}. Expected one of: {', '.join(STAGES)}")
+    path, state, issue_data = load_existing_or_create(repo, issue_number)
+    approvals = {**{s: False for s in STAGES}, **state.get("approvals", {})}
+    approvals[stage] = True
+    state["approvals"] = approvals
+    state.setdefault("history", []).append(f"{now_iso()} locally approved {stage}")
+    state["updated_at"] = now_iso()
+    save_state(path, state)
+    print(f"Approved locally: {stage}")
+    if audit_comment:
+        post_comment(repo, issue_number, local_approval_comment(stage), apply=apply)
+    sync_one(repo, issue_number, apply=apply)
+
+
+def run_issue(repo: str, issue_number: int, *, apply: bool) -> None:
+    sync_one(repo, issue_number, apply=apply)
+
 def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--repo", required=True, help="owner/name")
-    parser.add_argument("--issue", type=int, help="specific issue number")
-    parser.add_argument("--discover-label", default="sp:local-flow", help="label used to discover issues")
-    parser.add_argument("--apply", action="store_true", help="write GitHub comments/labels")
-    parser.add_argument("--dry-run", action="store_true", help="do not mutate GitHub (default)")
-    args = parser.parse_args()
+    parser = argparse.ArgumentParser(description="Local Codex Superpowers orchestrator")
+    subparsers = parser.add_subparsers(dest="command")
+
+    def add_common(p: argparse.ArgumentParser) -> None:
+        p.add_argument("--repo", required=True, help="owner/name")
+        p.add_argument("--issue", type=int, help="specific issue number")
+        p.add_argument("--discover-label", default="sp:local-flow", help="label used to discover issues")
+        p.add_argument("--apply", action="store_true", help="write GitHub comments/labels")
+        p.add_argument("--dry-run", action="store_true", help="do not mutate GitHub (default)")
+
+    run_parser = subparsers.add_parser("run", help="run/sync one issue or all discovered issues")
+    add_common(run_parser)
+
+    status_parser = subparsers.add_parser("status", help="show local/GitHub stage status")
+    status_parser.add_argument("--repo", required=True, help="owner/name")
+    status_parser.add_argument("--issue", required=True, type=int, help="issue number")
+
+    approve_parser = subparsers.add_parser("approve", help="approve a stage locally and immediately advance")
+    approve_parser.add_argument("--repo", required=True, help="owner/name")
+    approve_parser.add_argument("--issue", required=True, type=int, help="issue number")
+    approve_parser.add_argument("--stage", required=True, choices=STAGES)
+    approve_parser.add_argument("--apply", action="store_true", help="post GitHub audit comment and stage comment")
+    approve_parser.add_argument("--dry-run", action="store_true", help="update local YAML but do not mutate GitHub")
+    approve_parser.add_argument("--no-audit-comment", action="store_true", help="do not post /sp approve audit comment")
+
+    # Backward-compatible legacy flags: `script.py --repo ... --issue ...` means run.
+    argv = sys.argv[1:]
+    if argv and argv[0] not in {"run", "status", "approve", "-h", "--help"}:
+        argv = ["run", *argv]
+    args = parser.parse_args(argv)
+
+    command = args.command or "run"
+    if command == "status":
+        print_status(args.repo, args.issue)
+        return 0
+    if command == "approve":
+        approve_stage(args.repo, args.issue, args.stage, apply=args.apply, audit_comment=not args.no_audit_comment)
+        return 0
 
     if args.issue:
-        sync_one(args.repo, args.issue, apply=args.apply)
+        run_issue(args.repo, args.issue, apply=args.apply)
         return 0
 
     issues = list_candidate_issues(args.repo, args.discover_label)
@@ -270,7 +353,7 @@ def main() -> int:
         print(f"No open issues with label {args.discover_label}")
         return 0
     for issue in issues:
-        sync_one(args.repo, int(issue["number"]), apply=args.apply)
+        run_issue(args.repo, int(issue["number"]), apply=args.apply)
     return 0
 
 

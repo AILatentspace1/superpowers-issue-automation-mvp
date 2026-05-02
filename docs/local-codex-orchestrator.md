@@ -92,3 +92,24 @@ python scripts/local_superpowers_orchestrator.py \
 - Stage transitions are deterministic and stored in YAML.
 - GitHub remains the collaboration/audit surface.
 - Codex Automations can continue the flow without relying on opaque Copilot sessions.
+
+
+## Local approval commands
+
+You can approve stages directly from local Codex without waiting for GitHub comment polling:
+
+```bash
+python scripts/local_superpowers_orchestrator.py status \
+  --repo AILatentspace1/superpowers-issue-automation-mvp \
+  --issue 11
+
+python scripts/local_superpowers_orchestrator.py approve \
+  --repo AILatentspace1/superpowers-issue-automation-mvp \
+  --issue 11 \
+  --stage plan \
+  --apply
+```
+
+`approve` updates local YAML immediately, optionally posts a GitHub audit comment (`/sp approve <stage>`), and then advances the issue to the next stage.
+
+Use `--dry-run` or omit `--apply` to avoid mutating GitHub.
