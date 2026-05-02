@@ -9,6 +9,19 @@ This repository demonstrates two layers:
 
 The MVP uses GitHub issue labels as the state machine and comments to trigger Copilot/custom code agents.
 
+
+## Local Codex orchestrator
+
+The recommended reliable path is now **local Codex + GitHub Issues + YAML state**.
+
+Run a local stage sync:
+
+```bash
+python scripts/local_superpowers_orchestrator.py --repo AILatentspace1/superpowers-issue-automation-mvp --issue 9 --dry-run
+```
+
+State lives in `.superpowers/issues/*.yaml`; artifacts live in `.superpowers/runs/`. GitHub issues remain the input, approval, and audit surface. See [`docs/local-codex-orchestrator.md`](docs/local-codex-orchestrator.md).
+
 ## Flow
 
 ```text
