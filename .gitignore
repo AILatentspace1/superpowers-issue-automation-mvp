@@ -3,3 +3,10 @@ __pycache__/
 .env
 .superpowers/issues/*.yaml
 .superpowers/runs/**
+# .superpowers/projects/ is intentionally NOT ignored (committed config)
+
+# active project pointer (local state, not committed)
+.superpowers/current_project
+
+# active project pointer (local state, not committed)
+.superpowers/current_project

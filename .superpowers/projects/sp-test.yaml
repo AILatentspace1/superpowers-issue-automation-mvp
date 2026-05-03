@@ -1,0 +1,5 @@
+schema_version: "1"
+name: "sp-test"
+repo: "AILatentspace1/superpowers-issue-automation-mvp"
+description: "Integration test project for sp.py flow"
+created_at: "2026-05-02T04:10:56+00:00"

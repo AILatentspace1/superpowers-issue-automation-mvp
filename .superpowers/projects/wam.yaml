@@ -1,0 +1,5 @@
+schema_version: "1"
+name: "wam"
+repo: "AILatentspace1/wechat-article-maker"
+description: "DeepAgents \u6587\u7ae0\u91cd\u5199\u53d1\u5e03\u6d41\u6c34\u7ebf"
+created_at: "2026-05-02T04:06:24+00:00"

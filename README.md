@@ -12,6 +12,19 @@ The MVP uses GitHub issue labels as the state machine and comments to trigger Co
 
 ## Local Codex orchestrator
 
+### Short Codex command wrapper
+
+This repo includes a local `/sp` command spec for Codex in `.codex/commands/sp.md` and an executable wrapper at `scripts/sp.py`:
+
+```bash
+python scripts/sp.py status 12
+python scripts/sp.py run 12 --dry-run
+python scripts/sp.py approve goal 12 --apply
+```
+
+See `docs/codex-commands.md` for the full mapping.
+
+
 The recommended reliable path is now **local Codex + GitHub Issues + YAML state**.
 
 Run a local stage sync:
