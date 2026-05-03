@@ -56,6 +56,7 @@ After free-form conversation, the user types /done. The local CLI then sends the
 - Should conversation be allowed for implement, test, verify, or release later, or remain limited to planning stages?
 - Should future versions support a compact/resumed summary for very long conversations?
 - Should provider support remain minimal OpenAI-compatible HTTP, or introduce a provider abstraction?
+- Should raw conversation logs be generated in MVP, and should they remain local-only under the target repo's .superpowers/runs/issue-<n>/<stage>.conversation.jsonl instead of being committed?
 
 ## Source relationship
 
@@ -66,3 +67,4 @@ After free-form conversation, the user types /done. The local CLI then sends the
 ## Approval
 
 Comment `/sp approve goal` on the issue to continue.
+
